@@ -15,6 +15,7 @@ result.value = ''
 
 map_devices = {}
 hal_manager_media_interface = None
+sms_interface = None
 
 def play():
     print (hal_manager_media_interface)
@@ -31,6 +32,9 @@ def volume_up():
 def volume_down():
     print (hal_manager_media_interface)
     hal_manager_media_interface.VolumeDown()
+def send_sms():
+    print (hal_manager_media_interface)
+    hal_manager_media_interface.VolumeUp() 
     
 def bt_choose(sel):
     global hal_manager_media_interface
@@ -43,6 +47,10 @@ def bt_choose(sel):
     print (hal_manager_media_interface)
     if hal_manager_media_interface:
         [button.enable() for button in buttons]
+    #create sms interface
+    #global sms_interface
+    #sms_object =  bus.get_object('org.bluez.obex', '/org/bluez/obex/dev_48_13_7E_BC_48_A4')
+    #sms_interface = dbus.Interface(sms_object, 'org.bluez.obex.MessageAccess1')
         
     
 def generate_bluez_device_id(addr):
@@ -58,7 +66,7 @@ def discover_dev():
     for addr, name in devices:
         map_devices[name] = generate_bluez_device_id(addr)
         combo.append(name)
-        #print (name, addr)
+        #print (name, mainloop = GObject.MainLoop()addr)
         #print (generate_bluez_device_id(addr))
     return map_devices
 
@@ -71,6 +79,7 @@ btn_fw = PushButton(app,grid = [9,2],image = "resources/forwards.png",command=ne
 btn_prev = PushButton(app,grid = [2,2],image = "resources/previous.png",command=previous_song)
 btn_vup = PushButton(app, grid = [11,2],image = "resources/volume-up.png",command=volume_up)
 btn_vdown = PushButton(app, grid = [13,2],image = "resources/volume-down.png",command=volume_down)
+btn_send_sms = PushButton(app, grid=[1,3], command=send_sms)
 buttons.append(btn_play)
 buttons.append(btn_pause)
 buttons.append(btn_fw)

@@ -89,6 +89,9 @@ def bt_choose(sel):
     if not map:
         print ('WARNING:no map instance available')
         return
+    with open('bmessage1') as f:
+        content = f.readline()
+        print (content)    
     #print ('push message')
     #map.PushMessage(TEST_MSG, "telecom/msg/outbox", dict(), reply_handler=create_transfer_reply, error_handler=error)
 
@@ -111,28 +114,48 @@ def create_transfer_reply(path, properties):
     if self.verbose:
         print("Transfer created: %s (file %s)" % (path, properties["Filename"]))
 
-def error(err):
+def errorss(err):
     print(err)
     mainloop.quit()
-
-def push_message(filename):
+    
+def list_folders():
     global map
     print (map)
     print ('list folders')
     for i in map.ListFolders(dict()):
         print("%s/" % (i["Name"]))
+        
+def list_folders():
+    global map
+    print (map)
+    print ('list folders')
+    for i in map.ListFolders(dict()):
+        print("%s/" % (i["Name"]))
+
+def list_messages():
+    global map
+    print (map)
+    print ('list messages')
+    try:
+        ret = map.ListMessages('telecom', dict())
+        print(pformat(unwrap(ret)))
+    except dbus.exceptions.DBusException as e:
+        print ('ERROR: ListMessages failed' + e.get_dbus_message())
+    
     #print ('list messages')
     #try:
     #    ret = map.ListMessages('telecom', dict())
     #    print(pformat(unwrap(ret)))
     #except dbus.exceptions.DBusException as e:
     #    print ('ERROR: ListMessages failed' + e.get_dbus_message())
-    print ('push message')
-    map.PushMessage(TEST_MSG, "telecom/msg/outbox", dict(), reply_handler=create_transfer_reply, error_handler=error)
+    #print ('push message')
+    #map.PushMessage('bmessage1', "telecom/msg/outbox", dict(), reply_handler=create_transfer_reply, error_handler=errorss)
     
 
 app = App(layout="grid",bg="white",title="Bluetooth Player",width = 490,height = 300)
 combo = Combo(app, grid = [2,1], options=[], command=bt_choose)
 PushButton(app,grid = [0,1], command=discover_dev, text='discover')
 btn_play = PushButton(app,grid = [1,1],command=push_message, text='send_sms', args=['test1'])
+btn_play = PushButton(app,grid = [3,1],command=list_folders, text='list folders', args=['test1'])
+btn_play = PushButton(app,grid = [4,1],command=list_messages, text='list messages', args=['test1'])
 
