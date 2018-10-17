@@ -8,6 +8,8 @@ except ImportError:
 from pprint import pformat
 import time
 
+from threading import Thread
+
 BUS_NAME='org.bluez.obex'
 PATH = '/org/bluez/obex'
 CLIENT_INTERFACE = 'org.bluez.obex.Client1'
@@ -17,34 +19,33 @@ MESSAGE_ACCESS_INTERFACE = 'org.bluez.obex.MessageAccess1'
 OUTBOX_PATH = 'telecom/msg/outbox'
 
 TEST_MSG = '''BEGIN:BMSG<CR><LF>\
-           VERSION:1.0<CR><LF>\
-           STATUS:UNREAD<CR><LF>\
-           TYPE:SMS_GSM<CR><LF>\
-           FOLDER:TELECOM/MSG/OUTBOX<CR><LF>\
-           BEGIN:VCARD<CR><LF>\
-           VERSION:2.1<CR><LF>\
-           FN:<CR><LF>\
-           N:Caunic;Paul;;Mr.;<CR><LF>\
-           TEL:0745757086<CR><LF>\
-           EMAIL:<CR><LF>\
-           END:VCARD<CR><LF>\
-           BEGIN:BENV<CR><LF>\
-           BEGIN:VCARD<CR><LF>\
-           VERSION:2.1<CR><LF>\
-           FN:Forrest Gump<CR><LF>\
-           N:Gump;Forrest;;Mr.;<CR><LF>\
-           TEL:0745757086<CR><LF>\
-           EMAIL:<CR><LF>\
-           END:VCARD<CR><LF>\
-           BEGIN:BBODY<CR><LF>\
-           CHARSET:UTF-8<CR><LF>\
-           LENGTH:80<CR><LF>\
-           BEGIN:MSG<CR><LF>\
-           Bonjour, je serai en retard. Envoyé depuis ma voiture (aucune réponse attendue)<CR><LF>\
-           END:MSG<CR><LF>\
-           END:BBODY<CR><LF>\
-           END:BENV<CR><LF>\
-           END:BMSG<CR><LF>'''
+VERSION:1.0<CR><LF>\
+STATUS:UNREAD<CR><LF>\
+TYPE:SMS_GSM<CR><LF>\
+FOLDER:telecom/msg/outbox<CR><LF>\
+BEGIN:VCARD<CR><LF>\
+VERSION:2.1<CR><LF>\
+FN:Mark Jens<CR><LF>\
+N:Jens, Mark<CR><LF>\
+TEL:0040745754188<CR><LF>\
+EMAIL:<CR><LF>\
+END:VCARD<CR><LF>\
+BEGIN:BENV<CR><LF>\
+BEGIN:VCARD<CR><LF>\
+VERSION:2.1<CR><LF>\
+FN:Jens Hanssen<CR><LF>\
+N:<CR><LF>\
+TEL:0040745757086<CR><LF>\
+EMAIL:<CR><LF>\
+END:VCARD<CR><LF>\
+BEGIN:BBODY<CR><LF>\
+CHARSET:UTF-8<CR><LF>\
+LENGTH:103<CR><LF>\
+BEGIN:MSG<CR><LF>\
+Bonjour, je serai en retard. Envoyé depuis ma voiture (aucune réponse attendue)<CR><LF>\
+END:MSG<CR><LF>\
+END:BBODY<CR><LF>\
+END:BENV<CR><LF>'''
 
 
 session = None
@@ -62,13 +63,20 @@ def unwrap(x):
         return tuple(map(unwrap, x))
 
     if isinstance(x, dict):
-        return dict([(unwrap(k), unwrap(v)) for k, v in x.iteritems()])
+        return dict([(unwrap(k), unwrap(v)) for k, v in x.items()])
 
-    for t in [unicode, str, long, int, float, bool]:
+    for t in [str, int, float, bool]:
         if isinstance(x, t):
             return t(x)
 
     return x
+
+def dbus_loop():
+    print ('starting dbus loop')
+    print (dbus)
+    dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
+    mainloop = GObject.MainLoop()
+    mainloop.run()
 
 #callbacksCLIENT_INTERFACE
 def bt_choose(sel):
@@ -77,7 +85,16 @@ def bt_choose(sel):
     print (sel)
     
     print("Creating Session")
+    
+    #tDBus = Thread(target=dbus_loop)
+    #tDBus.start()
+    
     bus = dbus.SessionBus()
+    
+    #dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
+    #mainloop = GObject.MainLoop()
+    #tDBus = Thread(target=mainloop.run())
+    
     client = dbus.Interface(bus.get_object(BUS_NAME, PATH), CLIENT_INTERFACE)
     print ('connecting to {}'.format(map_devices[sel]))
     path = client.CreateSession(map_devices[sel], { "Target": "map" })
@@ -118,12 +135,11 @@ def errorss(err):
     print(err)
     mainloop.quit()
     
-def list_folders():
+def push_message():
     global map
     print (map)
-    print ('list folders')
-    for i in map.ListFolders(dict()):
-        print("%s/" % (i["Name"]))
+    print ('push message:' + TEST_MSG)
+    map.PushMessage(TEST_MSG, "telecom/msg/outbox", dict(), reply_handler=create_transfer_reply, error_handler=errorss)
         
 def list_folders():
     global map
@@ -131,13 +147,31 @@ def list_folders():
     print ('list folders')
     for i in map.ListFolders(dict()):
         print("%s/" % (i["Name"]))
+        map.SetFolder(i["Name"])
+        for j in map.ListFolders(dict()):
+            print("    %s/" % (j["Name"]))
+            map.SetFolder(j['Name'])
+            for k in map.ListFolders(dict()):
+                print("        %s/" % (k["Name"]))
+                #if k["Name"] == 'draft':
+                if k["Name"] == 'draft':
+                    map.SetFolder(k['Name'])
+                    print ('push message:' + TEST_MSG)
+                    map.PushMessage(TEST_MSG, "", dict(), reply_handler=create_transfer_reply, error_handler=errorss)
+                    #try:
+                    #    print ('list messages')
+                    #    ret = map.ListMessages('', dict())
+                    #    print(pformat(unwrap(ret)))
+                    #except dbus.exceptions.DBusException as e:
+                    #    print ('ERROR: ListMessages failed' + e.get_dbus_message())
+                
 
 def list_messages():
     global map
     print (map)
     print ('list messages')
     try:
-        ret = map.ListMessages('telecom', dict())
+        ret = map.ListMessages('telecom/msg/draft', dict())
         print(pformat(unwrap(ret)))
     except dbus.exceptions.DBusException as e:
         print ('ERROR: ListMessages failed' + e.get_dbus_message())
@@ -150,12 +184,20 @@ def list_messages():
     #    print ('ERROR: ListMessages failed' + e.get_dbus_message())
     #print ('push message')
     #map.PushMessage('bmessage1', "telecom/msg/outbox", dict(), reply_handler=create_transfer_reply, error_handler=errorss)
+
+
+if __name__ == '__main__':
+    print ('ds')
+    #bus = dbus.SessionBus()
+    mainloop = GObject.MainLoop()
     
+        
+    app = App(layout="grid",bg="white",title="Bluetooth Player",width = 490,height = 300)
+    combo = Combo(app, grid = [2,1], options=[], command=bt_choose)
+    PushButton(app,grid = [0,1], command=discover_dev, text='discover')
+    btn_play = PushButton(app,grid = [1,1],command=push_message, text='send_sms')
+    btn_play = PushButton(app,grid = [3,1],command=list_folders, text='list folders')
+    btn_play = PushButton(app,grid = [4,1],command=list_messages, text='list messages')
 
-app = App(layout="grid",bg="white",title="Bluetooth Player",width = 490,height = 300)
-combo = Combo(app, grid = [2,1], options=[], command=bt_choose)
-PushButton(app,grid = [0,1], command=discover_dev, text='discover')
-btn_play = PushButton(app,grid = [1,1],command=push_message, text='send_sms', args=['test1'])
-btn_play = PushButton(app,grid = [3,1],command=list_folders, text='list folders', args=['test1'])
-btn_play = PushButton(app,grid = [4,1],command=list_messages, text='list messages', args=['test1'])
-
+    tDBus = Thread(target=mainloop.run)
+    tDBus.start()
